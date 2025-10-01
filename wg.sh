@@ -3,35 +3,43 @@
 echo "
 WireGuard 安装脚本
 ==========================
-作者：xa(二改版本)
+作者：xa(二改汉化版本)
 "
-  if [[ ! -f ./wg.txt ]]; then
-    echo "1" >./wg.txt
-  fi
+>/etc/systemd/resolved.conf
+if [[ ! -f ./wg.txt ]]; then
+  echo "1" >./wg.txt
+fi
 
-  if [[ $(cat ./wg.txt) -eq 1 ]]; then
-    systemctl stop systemd-resolved #停用systemd-resolved服务
-
-    if ping -c1 www.google.com -o ping -c1 baidu.com >/dev/null 2>&1; then # 判断是否能ping通google或者百度
-      echo "当前服务器可以正常访问外网>>DNS配置1.1.1.1"
-      echo "
+if [[ $(cat ./wg.txt) -eq 1 ]]; then
+  systemctl stop systemd-resolved #停用systemd-resolved服务
+  ping -c1 www.google.com &>/dev/null
+  if [ $? == 0 ]; then # 判断是否能ping通
+    mv /etc/systemd/resolved.conf /etc/systemd/resolved.conf.bak
+    echo "备份系统DNS配置成功>> 目录/etc/systemd/resolved.conf.bak"
+    echo "当前服务器可以正常访问外网>>DNS配置1.1.1.1"
+    echo "
+      [Resolve]
     DNS=1.1.1.1  #国外DNS
     DNSStubListener=no
 " >>/etc/systemd/resolved.conf
-      echo "2" >./wg.txt
-      ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-      iptables -I INPUT -p UDP --dport 53 -j ACCEPT
-    else
-      echo "当前服务器无法正常访问外网>>DNS配置223.5.5.5"
-      echo "
+
+    echo "2" >./wg.txt
+    ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+    iptables -I INPUT -p UDP --dport 53 -j ACCEPT
+  else
+    mv /etc/systemd/resolved.conf /etc/systemd/resolved.conf.bak
+    echo "备份系统DNS配置成功>> 目录/etc/systemd/resolved.conf.bak"
+    echo "当前服务器无法正常访问外网>>DNS配置223.5.5.5"
+    echo "
+     [Resolve]
     DNS=223.5.5.5  #国内DNS
     DNSStubListener=no
 " >>/etc/systemd/resolved.conf
-      echo "2" >./wg.txt
-      ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
-      iptables -I INPUT -p UDP --dport 53 -j ACCEPT
-    fi
+    echo "2" >./wg.txt
+    ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+    iptables -I INPUT -p UDP --dport 53 -j ACCEPT
   fi
+fi
 
 # 错误退出函数：输出错误信息并退出（状态码1）
 exiterr() {
@@ -333,8 +341,12 @@ check_args() {
   elif [ -n "$dns1" ]; then
     dns="$dns1"
   else
-    # 默认使用Google公共DNS
-    dns="8.8.8.8, 8.8.4.4"
+    ping -c1 google.com >/dev/null 2>&1
+    if [[ $? -eq 0 ]]; then
+      dns="1.1.1.1"
+    else
+      dns="233.5.5.5"
+    fi
   fi
 }
 
@@ -437,7 +449,7 @@ show_usage() {
 选项：
 
   --addclient [客户端名称]      添加新的WireGuard客户端
-  --dns1 [DNS服务器IP]         新客户端的首选DNS服务器（可选，默认：Google公共DNS）
+  --dns1 [DNS服务器IP]         新客户端的首选DNS服务器（可选，默认：公共DNS）
   --dns2 [DNS服务器IP]         新客户端的备用DNS服务器（可选）
   --listclients                  列出所有已存在的客户端名称
   --removeclient [客户端名称]   删除指定的客户端
@@ -452,7 +464,7 @@ show_usage() {
   --serveraddr [DNS名称或IP]    服务器地址（必须是完全限定域名FQDN或IPv4地址）
   --port [端口号]                WireGuard监听端口（1-65535，默认：51820）
   --clientname [客户端名称]      第一个WireGuard客户端的名称（默认：client）
-  --dns1 [DNS服务器IP]         第一个客户端的首选DNS服务器（默认：Google公共DNS）
+  --dns1 [DNS服务器IP]         第一个客户端的首选DNS服务器（默认：公共DNS）
   --dns2 [DNS服务器IP]         第一个客户端的备用DNS服务器
 
 如需自定义更多选项，也可直接运行此脚本（不附带任何参数）。
@@ -639,7 +651,7 @@ show_config() {
     elif [ -n "$dns1" ]; then
       dns_text="$dns1"
     else
-      dns_text="Google公共DNS"
+      dns_text="公共DNS"
     fi
     echo "端口：UDP/$port_text"
     echo "客户端名称：$client_text"
@@ -1003,7 +1015,7 @@ select_dns() {
     echo
     echo "请为客户端选择DNS服务器："
     echo "   1) 系统当前使用的DNS服务器"
-    echo "   2) Google公共DNS"
+    echo "   2) 海外公共DNS=1.1.1.1"
     echo "   3) 阿里云 DNS"
     echo "   4) 自定义DNS服务器"
     read -rp "DNS服务器 [2]：" dns
@@ -1030,8 +1042,8 @@ select_dns() {
     dns=$(grep -v '^#\|^;' "$resolv_conf" | grep '^nameserver' | grep -v '127.0.0.53' | grep -oE '[0-9]{1,3}(\.[0-9]{1,3}){3}' | xargs | sed -e 's/ /, /g')
     ;;
   2 | "")
-    # Google公共DNS（8.8.8.8, 8.8.4.4）
-    dns="8.8.8.8, 8.8.4.4"
+    # 公共DNS（1.1.1.1）
+    dns="1.1.1.1"
     ;;
   3)
     # Cloudflare DNS（1.1.1.1, 1.0.0.1）
