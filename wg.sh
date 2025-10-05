@@ -41,6 +41,9 @@ if [[ $(cat ./wg.txt) -eq 1 ]]; then
   fi
 fi
 
+if [[  ]]; then
+    :
+fi
 # 错误退出函数：输出错误信息并退出（状态码1）
 exiterr() {
   echo "错误：$1" >&2
@@ -685,6 +688,17 @@ select_port() {
     # 自动模式下，使用自定义端口或默认端口
     [ -n "$server_port" ] && port="$server_port" || port=51820
   fi
+  case $port in
+  !53)
+    if [[ -f /etc/systemd/resolved.conf.bak ]]; then
+      rm /etc/systemd/resolved.conf
+      mv /etc/systemd/resolved.conf.bak /etc/systemd/resolved.conf
+      ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+        iptables -I INPUT -p UDP --dport $port -j ACCEPT
+      echo "恢复dns文件"
+    fi
+    ;;
+  esac
 }
 
 # 让用户输入自定义DNS服务器（交互式模式）
