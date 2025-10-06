@@ -41,9 +41,6 @@ if [[ $(cat ./wg.txt) -eq 1 ]]; then
   fi
 fi
 
-if [[  ]]; then
-    :
-fi
 # 错误退出函数：输出错误信息并退出（状态码1）
 exiterr() {
   echo "错误：$1" >&2
